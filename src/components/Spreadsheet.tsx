@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Row from "./Row";
+import { useAuth } from "@/context/AuthContext";
+import { subscribeToCells, updateCell, deleteCell } from "@/lib/firestoreCells";
 
 interface SpreadsheetProps {
   documentId: string;
@@ -11,23 +13,31 @@ const ROWS = 20;
 const COLUMNS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 export default function Spreadsheet({ documentId }: SpreadsheetProps) {
-  // Sparse cell map: only edited cells are stored
+  // Sparse cell map: driven entirely by Firestore snapshot
   const [cellMap, setCellMap] = useState<Record<string, string>>({});
+  const { user } = useAuth();
 
-  const handleCellChange = (cellId: string, value: string) => {
-    setCellMap((prev) => {
-      const newMap = { ...prev };
+  useEffect(() => {
+    if (!documentId) return;
 
-      // Rule: if value is empty, remove from cellMap to keep it sparse
-      const trimValue = value.trim();
-      if (trimValue === "") {
-        delete newMap[cellId];
-      } else {
-        newMap[cellId] = trimValue;
-      }
-
-      return newMap;
+    // Subscribe to Firestore changes and update the UI
+    const unsubscribe = subscribeToCells(documentId, (newCellMap) => {
+      setCellMap(newCellMap);
     });
+
+    return () => unsubscribe();
+  }, [documentId]);
+
+  const handleCellChange = async (cellId: string, value: string) => {
+    // Determine the trimmed value
+    const trimValue = value.trim();
+    
+    // Write directly to Firestore. The snapshot listener will update cellMap automatically.
+    if (trimValue === "") {
+      await deleteCell(documentId, cellId);
+    } else {
+      await updateCell(documentId, cellId, trimValue, user?.uid);
+    }
   };
 
   return (

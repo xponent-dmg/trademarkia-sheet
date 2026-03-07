@@ -1,5 +1,6 @@
 import Cell from "./Cell";
 import { ActiveUser } from "@/lib/firestorePresence";
+import { evaluateFormula } from "@/lib/formula/evaluateFormula";
 
 interface RowProps {
   rowNumber: number;
@@ -23,6 +24,7 @@ export default function Row({ rowNumber, columns, cellMap, selectionMap, onCellC
         {columns.map((col) => {
           const cellId = `${col}${rowNumber}`;
           const value = cellMap[cellId] || "";
+          const displayValue = evaluateFormula(value, cellMap);
           const selectedBy = selectionMap[cellId] || null;
 
           return (
@@ -30,6 +32,7 @@ export default function Row({ rowNumber, columns, cellMap, selectionMap, onCellC
               key={cellId}
               cellId={cellId}
               value={value}
+              displayValue={displayValue}
               onChange={onCellChange}
               onSelect={onCellSelect}
               selectedBy={selectedBy}

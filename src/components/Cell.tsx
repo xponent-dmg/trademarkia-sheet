@@ -7,12 +7,13 @@ import { ActiveUser } from "@/lib/firestorePresence";
 interface CellProps {
   cellId: string;
   value: string;
+  displayValue?: string; // Additional prop for computed formula value
   onChange: (cellId: string, value: string) => void;
   onSelect: (cellId: string) => void;
   selectedBy: ActiveUser | null;
 }
 
-export default function Cell({ cellId, value, onChange, onSelect, selectedBy }: CellProps) {
+export default function Cell({ cellId, value, displayValue, onChange, onSelect, selectedBy }: CellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +80,7 @@ export default function Cell({ cellId, value, onChange, onSelect, selectedBy }: 
         />
       ) : (
         <div className="w-full h-full px-1 flex items-center whitespace-nowrap overflow-hidden text-gray-800">
-          {value}
+          {displayValue !== undefined ? displayValue : value}
         </div>
       )}
     </div>

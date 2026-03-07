@@ -2,13 +2,17 @@
 
 import { useState, useRef, useEffect } from "react";
 
+import { ActiveUser } from "@/lib/firestorePresence";
+
 interface CellProps {
   cellId: string;
   value: string;
   onChange: (cellId: string, value: string) => void;
+  onSelect: (cellId: string) => void;
+  selectedBy: ActiveUser | null;
 }
 
-export default function Cell({ cellId, value, onChange }: CellProps) {
+export default function Cell({ cellId, value, onChange, onSelect, selectedBy }: CellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,19 +48,30 @@ export default function Cell({ cellId, value, onChange }: CellProps) {
     onChange(cellId, editValue);
   };
 
+  let borderClass = "border border-gray-200";
+  let borderStyle = {};
+
+  if (isEditing) {
+    borderClass = "border-2 border-blue-500";
+  } else if (selectedBy) {
+    borderClass = "border-2";
+    borderStyle = { borderColor: selectedBy.color };
+  }
+
   return (
     <div
-      className="border border-gray-200 w-[100px] h-[32px] overflow-hidden bg-white text-sm"
+      className={`${borderClass} w-[100px] h-[32px] overflow-hidden bg-white text-sm box-border`}
+      style={borderStyle}
       onDoubleClick={handleDoubleClick}
       onClick={() => {
-        if (!isEditing) setIsEditing(true); // Single click also enters edit mode
+        if (!isEditing) onSelect(cellId);
       }}
     >
       {isEditing ? (
         <input
           ref={inputRef}
           type="text"
-          className="w-full h-full px-1 py-0 outline-none border-blue-500 border-2"
+          className="w-full h-full px-1 py-0 outline-none bg-transparent"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}

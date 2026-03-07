@@ -1,13 +1,16 @@
 import Cell from "./Cell";
+import { ActiveUser } from "@/lib/firestorePresence";
 
 interface RowProps {
   rowNumber: number;
   columns: string[];
   cellMap: Record<string, string>;
+  selectionMap: Record<string, ActiveUser>;
   onCellChange: (cellId: string, value: string) => void;
+  onCellSelect: (cellId: string) => void;
 }
 
-export default function Row({ rowNumber, columns, cellMap, onCellChange }: RowProps) {
+export default function Row({ rowNumber, columns, cellMap, selectionMap, onCellChange, onCellSelect }: RowProps) {
   return (
     <div className="flex flex-row">
       {/* Row Header */}
@@ -20,6 +23,7 @@ export default function Row({ rowNumber, columns, cellMap, onCellChange }: RowPr
         {columns.map((col) => {
           const cellId = `${col}${rowNumber}`;
           const value = cellMap[cellId] || "";
+          const selectedBy = selectionMap[cellId] || null;
 
           return (
             <Cell
@@ -27,6 +31,8 @@ export default function Row({ rowNumber, columns, cellMap, onCellChange }: RowPr
               cellId={cellId}
               value={value}
               onChange={onCellChange}
+              onSelect={onCellSelect}
+              selectedBy={selectedBy}
             />
           );
         })}

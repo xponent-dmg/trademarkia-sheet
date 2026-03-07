@@ -3,6 +3,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  updateDoc,
   onSnapshot,
   query,
   where,
@@ -18,6 +19,7 @@ export interface ActiveUser {
   name: string;
   color: string;
   joinedAt?: Timestamp;
+  selectedCell?: string | null;
 }
 
 /**
@@ -87,6 +89,28 @@ export const removePresence = async (
 };
 
 /**
+ * Updates a user's selected cell in their presence document.
+ * @param documentId The ID of the document.
+ * @param userId The ID of the user.
+ * @param selectedCell The selected cell ID, or null.
+ */
+export const updatePresenceSelection = async (
+  documentId: string,
+  userId: string,
+  selectedCell: string | null
+): Promise<void> => {
+  try {
+    const presenceId = `${documentId}_${userId}`;
+    const presenceRef = doc(db, PRESENCE_COLLECTION, presenceId);
+    await updateDoc(presenceRef, {
+      selectedCell,
+    });
+  } catch (error) {
+    console.error("Error updating presence selection:", error);
+  }
+};
+
+/**
  * Subscribes to the active users in a document.
  * @param documentId The ID of the document to monitor.
  * @param onUpdate Callback fired when the active users change.
@@ -112,6 +136,7 @@ export const subscribeToPresence = (
           name: data.name,
           color: data.color,
           joinedAt: data.joinedAt,
+          selectedCell: data.selectedCell || null,
         });
       });
       onUpdate(users);

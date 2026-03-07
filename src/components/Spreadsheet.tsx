@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Row from "./Row";
 import { useAuth } from "@/context/AuthContext";
 import { subscribeToCells, updateCell, deleteCell } from "@/lib/firestoreCells";
+import { subscribeToPresence, updatePresenceSelection, ActiveUser } from "@/lib/firestorePresence";
 
 interface SpreadsheetProps {
   documentId: string;
@@ -15,18 +16,39 @@ const COLUMNS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 export default function Spreadsheet({ documentId }: SpreadsheetProps) {
   // Sparse cell map: driven entirely by Firestore snapshot
   const [cellMap, setCellMap] = useState<Record<string, string>>({});
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
+  const [selectedCellLocal, setSelectedCellLocal] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
     if (!documentId) return;
 
     // Subscribe to Firestore changes and update the UI
-    const unsubscribe = subscribeToCells(documentId, (newCellMap) => {
+    const unsubscribeCells = subscribeToCells(documentId, (newCellMap) => {
       setCellMap(newCellMap);
     });
 
-    return () => unsubscribe();
+    const unsubscribePresence = subscribeToPresence(documentId, (users) => {
+      setActiveUsers(users);
+    });
+
+    return () => {
+      unsubscribeCells();
+      unsubscribePresence();
+    };
   }, [documentId]);
+
+  const selectionMap = activeUsers.reduce((acc, activeUser) => {
+    // Use local selection state for instantaneous feedback for current user
+    const selectedCell = activeUser.userId === user?.uid && selectedCellLocal !== null
+      ? selectedCellLocal
+      : activeUser.selectedCell;
+
+    if (selectedCell) {
+      acc[selectedCell] = activeUser;
+    }
+    return acc;
+  }, {} as Record<string, ActiveUser>);
 
   const handleCellChange = async (cellId: string, value: string) => {
     // Determine the trimmed value
@@ -37,6 +59,13 @@ export default function Spreadsheet({ documentId }: SpreadsheetProps) {
       await deleteCell(documentId, cellId);
     } else {
       await updateCell(documentId, cellId, trimValue, user?.uid);
+    }
+  };
+
+  const handleCellSelect = (cellId: string) => {
+    if (user?.uid) {
+      setSelectedCellLocal(cellId);
+      updatePresenceSelection(documentId, user.uid, cellId);
     }
   };
 
@@ -68,7 +97,9 @@ export default function Spreadsheet({ documentId }: SpreadsheetProps) {
               rowNumber={rowNumber}
               columns={COLUMNS}
               cellMap={cellMap}
+              selectionMap={selectionMap}
               onCellChange={handleCellChange}
+              onCellSelect={handleCellSelect}
             />
           );
         })}

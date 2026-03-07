@@ -15,7 +15,7 @@ export default async function DocumentPage(props: DocumentPageProps) {
   
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50 flex flex-col pt-16">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Header bar */}
         <DocumentHeader documentId={params.id} />
 

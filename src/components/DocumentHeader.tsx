@@ -5,6 +5,7 @@ import Link from "next/link";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { updateDocumentTitle } from "@/lib/firestore";
+import ActiveUsersDropdown from "./ActiveUsersDropdown";
 
 interface DocumentHeaderProps {
   documentId: string;
@@ -66,7 +67,7 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
   };
 
   return (
-    <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0">
+    <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0 relative z-50">
       <div className="flex items-center gap-4">
         <Link 
           href="/dashboard"
@@ -101,6 +102,11 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
             ID: {documentId}
           </span>
         </div>
+      </div>
+      
+      {/* Active Users Dropdown Top Right */}
+      <div>
+        <ActiveUsersDropdown documentId={documentId} />
       </div>
     </div>
   );

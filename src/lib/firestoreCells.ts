@@ -11,6 +11,13 @@ import { db } from "./firebase";
 const DOCUMENTS_COLLECTION = "documents";
 const CELLS_SUBCOLLECTION = "cells";
 
+export interface CellData {
+  value: string;
+  bold?: boolean;
+  italic?: boolean;
+  bgColor?: string;
+}
+
 /**
  * Subscribes to realtime updates for all cells in a document.
  * @param documentId The ID of the document.
@@ -19,16 +26,21 @@ const CELLS_SUBCOLLECTION = "cells";
  */
 export const subscribeToCells = (
   documentId: string,
-  onUpdate: (cellMap: Record<string, string>) => void
+  onUpdate: (cellMap: Record<string, CellData>) => void
 ) => {
   const cellsRef = collection(db, DOCUMENTS_COLLECTION, documentId, CELLS_SUBCOLLECTION);
 
   const unsubscribe = onSnapshot(cellsRef, (snapshot) => {
-    const newCellMap: Record<string, string> = {};
+    const newCellMap: Record<string, CellData> = {};
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.value) {
-        newCellMap[docSnap.id] = data.value;
+      if (data.value !== undefined) {
+        newCellMap[docSnap.id] = {
+          value: data.value,
+          bold: data.bold,
+          italic: data.italic,
+          bgColor: data.bgColor
+        };
       }
     });
     // Replace the entire map with the current snapshot from Firestore
@@ -50,17 +62,17 @@ export const subscribeToCells = (
 export const updateCell = async (
   documentId: string,
   cellId: string,
-  value: string,
+  data: Partial<CellData>,
   userId: string | undefined
 ) => {
   try {
     const cellRef = doc(db, DOCUMENTS_COLLECTION, documentId, CELLS_SUBCOLLECTION, cellId);
     
     await setDoc(cellRef, {
-      value,
+      ...data,
       updatedBy: userId || "anonymous",
       updatedAt: serverTimestamp(),
-    });
+    }, { merge: true });
   } catch (error) {
     console.error(`Error updating cell ${cellId}:`, error);
   }

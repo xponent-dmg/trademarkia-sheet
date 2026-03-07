@@ -15,6 +15,9 @@ interface CellProps {
   onSelect: (cellId: string) => void;
   selectedBy: ActiveUser | null;
   onBlur: () => void;
+  bold?: boolean;
+  italic?: boolean;
+  bgColor?: string;
 }
 
 export default function Cell({ 
@@ -28,7 +31,10 @@ export default function Cell({
   onDoubleClick,
   onSelect, 
   selectedBy,
-  onBlur
+  onBlur,
+  bold,
+  italic,
+  bgColor
 }: CellProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -40,20 +46,32 @@ export default function Cell({
   }, [isEditing]);
 
   let borderClass = "border border-gray-200";
-  let borderStyle = {};
+  let borderStyle: React.CSSProperties = {};
 
   if (isEditing) {
-    borderClass = "border-2 border-blue-500 z-5";
+    borderClass = "border-2 z-20";
+    if (selectedBy) {
+      borderStyle = { borderColor: selectedBy.color };
+    } else {
+      borderClass += " border-blue-500";
+    }
   } else if (selectedBy) {
     borderClass = "border-2 z-10";
     borderStyle = { borderColor: selectedBy.color };
   }
 
+  const containerStyle: React.CSSProperties = {
+    ...borderStyle,
+    fontWeight: bold ? "bold" : "normal",
+    fontStyle: italic ? "italic" : "normal",
+    backgroundColor: bgColor || "transparent",
+  };
+
   return (
     <div
       data-cell-id={cellId}
       className={`${borderClass} w-[100px] h-[32px] overflow-hidden bg-white text-sm box-border relative`}
-      style={borderStyle}
+      style={containerStyle}
       onDoubleClick={() => onDoubleClick(cellId)}
       onClick={() => {
         if (!isEditing) onSelect(cellId);

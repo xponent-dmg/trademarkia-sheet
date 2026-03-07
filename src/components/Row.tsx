@@ -1,11 +1,12 @@
 import Cell from "./Cell";
 import { ActiveUser } from "@/lib/firestorePresence";
+import { CellData } from "@/lib/firestoreCells";
 import { evaluateFormula } from "@/lib/formula/evaluateFormula";
 
 interface RowProps {
   rowNumber: number;
   columns: string[];
-  cellMap: Record<string, string>;
+  cellMap: Record<string, CellData>;
   selectionMap: Record<string, ActiveUser>;
   editingCell: string | null;
   editingValue: string;
@@ -40,7 +41,8 @@ export default function Row({
       <div className="flex flex-row">
         {columns.map((col) => {
           const cellId = `${col}${rowNumber}`;
-          const value = cellMap[cellId] || "";
+          const cellData = cellMap[cellId];
+          const value = cellData?.value || "";
           const displayValue = evaluateFormula(value, cellMap);
           const selectedBy = selectionMap[cellId] || null;
           const isEditing = editingCell === cellId;
@@ -59,6 +61,9 @@ export default function Row({
               onChange={onCellChange}
               onSelect={onCellSelect}
               selectedBy={selectedBy}
+              bold={cellData?.bold}
+              italic={cellData?.italic}
+              bgColor={cellData?.bgColor}
             />
           );
         })}

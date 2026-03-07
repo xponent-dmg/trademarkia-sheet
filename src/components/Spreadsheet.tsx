@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import Row from "./Row";
 import { ActiveUser } from "@/lib/firestorePresence";
+import { CellData } from "@/lib/firestoreCells";
 
 interface SpreadsheetProps {
   documentId: string;
-  cellMap: Record<string, string>;
+  cellMap: Record<string, CellData>;
   activeUsers: ActiveUser[];
   selectedCellLocal: string | null;
   onCellChange: (cellId: string, value: string) => void;
@@ -70,7 +71,7 @@ export default function Spreadsheet({
 
   const handleDoubleClick = (cellId: string) => {
     setEditingCell(cellId);
-    setEditingValue(cellMap[cellId] || "");
+    setEditingValue(cellMap[cellId]?.value || "");
   };
 
   const handleCellBlur = () => {
@@ -138,7 +139,7 @@ export default function Spreadsheet({
     if (e.key === "Enter") {
       e.preventDefault();
       setEditingCell(selectedCellLocal);
-      setEditingValue(cellMap[selectedCellLocal] || "");
+      setEditingValue(cellMap[selectedCellLocal]?.value || "");
       return;
     }
 
@@ -174,7 +175,7 @@ export default function Spreadsheet({
       onKeyDown={handleKeyDown}
     >
       {/* Column Headers */}
-      <div className="flex flex-row sticky top-0 z-100 bg-gray-100 border-b border-gray-300 min-w-max">
+      <div className="flex flex-row sticky top-0 z-25 bg-gray-100 border-b border-gray-300 min-w-max">
         {/* Top-left corner cell */}
         <div className="w-12 h-[32px] bg-gray-200 border-r border-gray-300 flex-shrink-0 sticky left-0 z-30"></div>
 

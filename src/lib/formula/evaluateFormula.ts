@@ -1,5 +1,6 @@
 import { expandRange } from "./expandRange";
 import { parseCellRefs } from "./parseCellRefs";
+import { CellData } from "../firestoreCells";
 
 // Safe evaluation of mathematical expressions
 function safeEval(expression: string): number {
@@ -12,11 +13,11 @@ function safeEval(expression: string): number {
 // Recursively resolves a cell to its evaluated string value
 function resolveCellValue(
   cellId: string, 
-  cellMap: Record<string, string>, 
+  cellMap: Record<string, CellData>, 
   visited: Set<string>
 ): string {
   if (visited.has(cellId)) return "#ERROR";
-  let cellValue = cellMap[cellId] || "";
+  let cellValue = cellMap[cellId]?.value || "";
   
   if (cellValue.startsWith("=")) {
     const newVisited = new Set(visited);
@@ -29,7 +30,7 @@ function resolveCellValue(
 
 export function evaluateFormula(
   value: string,
-  cellMap: Record<string, string>,
+  cellMap: Record<string, CellData>,
   visited = new Set<string>()
 ): string {
   if (!value || !value.startsWith("=")) {

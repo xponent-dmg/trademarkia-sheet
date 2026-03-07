@@ -1,46 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import Row from "./Row";
-import { useAuth } from "@/context/AuthContext";
-import { subscribeToCells, updateCell, deleteCell } from "@/lib/firestoreCells";
-import { subscribeToPresence, updatePresenceSelection, ActiveUser } from "@/lib/firestorePresence";
+import { ActiveUser } from "@/lib/firestorePresence";
 
 interface SpreadsheetProps {
   documentId: string;
+  cellMap: Record<string, string>;
+  activeUsers: ActiveUser[];
+  selectedCellLocal: string | null;
+  onCellChange: (cellId: string, value: string) => void;
+  onCellSelect: (cellId: string) => void;
+  userUid?: string;
 }
 
-const ROWS = 20;
-const COLUMNS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+const ROWS = 100;
+const COLUMNS = Array.from({ length: 26}, (_, i) => String.fromCharCode(65 + i));
 
-export default function Spreadsheet({ documentId }: SpreadsheetProps) {
-  // Sparse cell map: driven entirely by Firestore snapshot
-  const [cellMap, setCellMap] = useState<Record<string, string>>({});
-  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
-  const [selectedCellLocal, setSelectedCellLocal] = useState<string | null>(null);
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (!documentId) return;
-
-    // Subscribe to Firestore changes and update the UI
-    const unsubscribeCells = subscribeToCells(documentId, (newCellMap) => {
-      setCellMap(newCellMap);
-    });
-
-    const unsubscribePresence = subscribeToPresence(documentId, (users) => {
-      setActiveUsers(users);
-    });
-
-    return () => {
-      unsubscribeCells();
-      unsubscribePresence();
-    };
-  }, [documentId]);
-
+export default function Spreadsheet({ 
+  documentId,
+  cellMap,
+  activeUsers,
+  selectedCellLocal,
+  onCellChange,
+  onCellSelect,
+  userUid
+}: SpreadsheetProps) {
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   const selectionMap = activeUsers.reduce((acc, activeUser) => {
     // Use local selection state for instantaneous feedback for current user
-    const selectedCell = activeUser.userId === user?.uid && selectedCellLocal !== null
+    const selectedCell = activeUser.userId === userUid && selectedCellLocal !== null
       ? selectedCellLocal
       : activeUser.selectedCell;
 
@@ -50,29 +42,139 @@ export default function Spreadsheet({ documentId }: SpreadsheetProps) {
     return acc;
   }, {} as Record<string, ActiveUser>);
 
-  const handleCellChange = async (cellId: string, value: string) => {
-    // Determine the trimmed value
-    const trimValue = value.trim();
-    
-    // Write directly to Firestore. The snapshot listener will update cellMap automatically.
-    if (trimValue === "") {
-      await deleteCell(documentId, cellId);
-    } else {
-      await updateCell(documentId, cellId, trimValue, user?.uid);
+  useEffect(() => {
+    if (selectedCellLocal && containerRef.current) {
+      const cellElement = containerRef.current.querySelector(
+        `[data-cell-id="${selectedCellLocal}"]`
+      );
+      if (cellElement) {
+        cellElement.scrollIntoView({
+          block: "nearest",
+          inline: "nearest",
+        });
+      }
+    }
+  }, [selectedCellLocal]);
+
+  const commitEdit = () => {
+    if (editingCell) {
+      onCellChange(editingCell, editingValue);
+      setEditingCell(null);
     }
   };
 
-  const handleCellSelect = (cellId: string) => {
-    if (user?.uid) {
-      setSelectedCellLocal(cellId);
-      updatePresenceSelection(documentId, user.uid, cellId);
+  const cancelEdit = () => {
+    setEditingCell(null);
+    setEditingValue("");
+  };
+
+  const handleDoubleClick = (cellId: string) => {
+    setEditingCell(cellId);
+    setEditingValue(cellMap[cellId] || "");
+  };
+
+  const handleCellBlur = () => {
+    commitEdit();
+  };
+
+  const extractCellId = (cellId: string): [number, number] => {
+    const colMatch = cellId.match(/^[A-Z]+/);
+    const rowMatch = cellId.match(/\d+$/);
+    if (!colMatch || !rowMatch) return [0, 1];
+    const colIndex = COLUMNS.indexOf(colMatch[0]);
+    const rowIndex = parseInt(rowMatch[0], 10);
+    return [colIndex === -1 ? 0 : colIndex, rowIndex];
+  };
+
+  const moveSelection = (startCell: string, direction: "up" | "down" | "left" | "right") => {
+    const [colIndex, row] = extractCellId(startCell);
+    let newColIndex = colIndex;
+    let newRow = row;
+
+    if (direction === "up") newRow = Math.max(1, row - 1);
+    if (direction === "down") newRow = Math.min(ROWS, row + 1);
+    if (direction === "left") newColIndex = Math.max(0, colIndex - 1);
+    if (direction === "right") newColIndex = Math.min(COLUMNS.length - 1, colIndex + 1);
+
+    if (newColIndex !== colIndex || newRow !== row) {
+      onCellSelect(`${COLUMNS[newColIndex]}${newRow}`);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const isEditing = editingCell !== null;
+    
+    const isPrintableKey = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+
+    if (isEditing) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitEdit();
+        moveSelection(editingCell, "down");
+        containerRef.current?.focus();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        commitEdit();
+        // Support Shift+Tab mapping to left if user holds shift
+        moveSelection(editingCell, e.shiftKey ? "left" : "right");
+        containerRef.current?.focus();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelEdit();
+        containerRef.current?.focus();
+      }
+      return; 
+    }
+
+    if (!selectedCellLocal) return;
+
+    if (isPrintableKey) {
+      setEditingCell(selectedCellLocal);
+      setEditingValue(e.key);
+      e.preventDefault();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setEditingCell(selectedCellLocal);
+      setEditingValue(cellMap[selectedCellLocal] || "");
+      return;
+    }
+
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key)) {
+      e.preventDefault();
+      
+      let direction: "up" | "down" | "left" | "right" = "right";
+      if (e.key === "ArrowUp") direction = "up";
+      if (e.key === "ArrowDown") direction = "down";
+      if (e.key === "ArrowLeft") direction = "left";
+      if (e.key === "ArrowRight" || e.key === "Tab") direction = "right";
+
+      if (e.key === "Tab" && e.shiftKey) {
+        direction = "left";
+      }
+
+      moveSelection(selectedCellLocal, direction);
+    }
+    
+    if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault();
+      if (cellMap[selectedCellLocal]) {
+        onCellChange(selectedCellLocal, ""); 
+      }
     }
   };
 
   return (
-    <div className="w-full h-full overflow-auto bg-white border border-gray-300 shadow-sm rounded-md">
+    <div 
+      ref={containerRef}
+      className="w-full overflow-auto bg-white border border-gray-300 shadow-sm rounded-md outline-none"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+    >
       {/* Column Headers */}
-      <div className="flex flex-row sticky top-0 z-10 bg-gray-100 border-b border-gray-300">
+      <div className="flex flex-row sticky top-0 z-10 bg-gray-100 border-b border-gray-300 min-w-max">
         {/* Top-left corner cell */}
         <div className="w-12 h-[32px] bg-gray-200 border-r border-gray-300 flex-shrink-0"></div>
 
@@ -88,7 +190,7 @@ export default function Spreadsheet({ documentId }: SpreadsheetProps) {
       </div>
 
       {/* Grid Rows */}
-      <div className="flex flex-col">
+      <div className="flex flex-col min-w-max pb-16">
         {Array.from({ length: ROWS }).map((_, index) => {
           const rowNumber = index + 1;
           return (
@@ -98,15 +200,16 @@ export default function Spreadsheet({ documentId }: SpreadsheetProps) {
               columns={COLUMNS}
               cellMap={cellMap}
               selectionMap={selectionMap}
-              onCellChange={handleCellChange}
-              onCellSelect={handleCellSelect}
+              editingCell={editingCell}
+              editingValue={editingValue}
+              onEditingValueChange={setEditingValue}
+              onDoubleClick={handleDoubleClick}
+              onCellBlur={handleCellBlur}
+              onCellChange={onCellChange}
+              onCellSelect={onCellSelect}
             />
           );
         })}
-      </div>
-
-      <div className="mt-4 p-4 text-xs text-gray-500 text-left border-t border-gray-200">
-        Stored Cells: {Object.keys(cellMap).length}
       </div>
     </div>
   );

@@ -7,11 +7,28 @@ interface RowProps {
   columns: string[];
   cellMap: Record<string, string>;
   selectionMap: Record<string, ActiveUser>;
+  editingCell: string | null;
+  editingValue: string;
+  onEditingValueChange: (value: string) => void;
+  onDoubleClick: (cellId: string) => void;
+  onCellBlur: () => void;
   onCellChange: (cellId: string, value: string) => void;
   onCellSelect: (cellId: string) => void;
 }
 
-export default function Row({ rowNumber, columns, cellMap, selectionMap, onCellChange, onCellSelect }: RowProps) {
+export default function Row({ 
+  rowNumber, 
+  columns, 
+  cellMap, 
+  selectionMap, 
+  editingCell,
+  editingValue,
+  onEditingValueChange,
+  onDoubleClick,
+  onCellBlur,
+  onCellChange, 
+  onCellSelect 
+}: RowProps) {
   return (
     <div className="flex flex-row">
       {/* Row Header */}
@@ -26,6 +43,7 @@ export default function Row({ rowNumber, columns, cellMap, selectionMap, onCellC
           const value = cellMap[cellId] || "";
           const displayValue = evaluateFormula(value, cellMap);
           const selectedBy = selectionMap[cellId] || null;
+          const isEditing = editingCell === cellId;
 
           return (
             <Cell
@@ -33,6 +51,11 @@ export default function Row({ rowNumber, columns, cellMap, selectionMap, onCellC
               cellId={cellId}
               value={value}
               displayValue={displayValue}
+              isEditing={isEditing}
+              editingValue={isEditing ? editingValue : ""}
+              onEditingValueChange={onEditingValueChange}
+              onDoubleClick={onDoubleClick}
+              onBlur={onCellBlur}
               onChange={onCellChange}
               onSelect={onCellSelect}
               selectedBy={selectedBy}

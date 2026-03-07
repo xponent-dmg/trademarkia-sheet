@@ -1,21 +1,35 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-
+import { useRef, useEffect } from "react";
 import { ActiveUser } from "@/lib/firestorePresence";
 
 interface CellProps {
   cellId: string;
   value: string;
   displayValue?: string; // Additional prop for computed formula value
-  onChange: (cellId: string, value: string) => void;
+  isEditing: boolean;
+  editingValue: string;
+  onEditingValueChange: (value: string) => void;
+  onChange: (cellId: string, value: string) => void; // Keep this just in case, though not strictly needed here if we handle commit in Spreadsheet it's fine.
+  onDoubleClick: (cellId: string) => void;
   onSelect: (cellId: string) => void;
   selectedBy: ActiveUser | null;
+  onBlur: () => void;
 }
 
-export default function Cell({ cellId, value, displayValue, onChange, onSelect, selectedBy }: CellProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
+export default function Cell({ 
+  cellId, 
+  value, 
+  displayValue, 
+  isEditing,
+  editingValue,
+  onEditingValueChange,
+  onChange,
+  onDoubleClick,
+  onSelect, 
+  selectedBy,
+  onBlur
+}: CellProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input when entering edit mode
@@ -25,45 +39,22 @@ export default function Cell({ cellId, value, displayValue, onChange, onSelect, 
     }
   }, [isEditing]);
 
-  // Sync internal edit value with external value if it changes
-  useEffect(() => {
-    setEditValue(value);
-  }, [value]);
-
-  const handleDoubleClick = () => {
-    setIsEditing(true);
-  };
-  
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      setIsEditing(false);
-      onChange(cellId, editValue);
-    } else if (e.key === "Escape") {
-      setIsEditing(false);
-      setEditValue(value); // Revert to original
-    }
-  };
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    onChange(cellId, editValue);
-  };
-
   let borderClass = "border border-gray-200";
   let borderStyle = {};
 
   if (isEditing) {
-    borderClass = "border-2 border-blue-500";
+    borderClass = "border-2 border-blue-500 z-10";
   } else if (selectedBy) {
-    borderClass = "border-2";
+    borderClass = "border-2 z-10";
     borderStyle = { borderColor: selectedBy.color };
   }
 
   return (
     <div
-      className={`${borderClass} w-[100px] h-[32px] overflow-hidden bg-white text-sm box-border`}
+      data-cell-id={cellId}
+      className={`${borderClass} w-[100px] h-[32px] overflow-hidden bg-white text-sm box-border relative`}
       style={borderStyle}
-      onDoubleClick={handleDoubleClick}
+      onDoubleClick={() => onDoubleClick(cellId)}
       onClick={() => {
         if (!isEditing) onSelect(cellId);
       }}
@@ -73,10 +64,9 @@ export default function Cell({ cellId, value, displayValue, onChange, onSelect, 
           ref={inputRef}
           type="text"
           className="w-full h-full px-1 py-0 outline-none bg-transparent"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
+          value={editingValue}
+          onChange={(e) => onEditingValueChange(e.target.value)}
+          onBlur={onBlur}
         />
       ) : (
         <div className="w-full h-full px-1 flex items-center whitespace-nowrap overflow-hidden text-gray-800">

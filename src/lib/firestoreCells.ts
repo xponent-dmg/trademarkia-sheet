@@ -3,14 +3,13 @@ import {
   doc,
   setDoc,
   deleteDoc,
-  query,
-  where,
   onSnapshot,
   serverTimestamp
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-const CELLS_COLLECTION = "cells";
+const DOCUMENTS_COLLECTION = "documents";
+const CELLS_SUBCOLLECTION = "cells";
 
 /**
  * Subscribes to realtime updates for all cells in a document.
@@ -22,17 +21,14 @@ export const subscribeToCells = (
   documentId: string,
   onUpdate: (cellMap: Record<string, string>) => void
 ) => {
-  const q = query(
-    collection(db, CELLS_COLLECTION),
-    where("documentId", "==", documentId)
-  );
+  const cellsRef = collection(db, DOCUMENTS_COLLECTION, documentId, CELLS_SUBCOLLECTION);
 
-  const unsubscribe = onSnapshot(q, (snapshot) => {
+  const unsubscribe = onSnapshot(cellsRef, (snapshot) => {
     const newCellMap: Record<string, string> = {};
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      if (data.cell && data.value) {
-        newCellMap[data.cell] = data.value;
+      if (data.value) {
+        newCellMap[docSnap.id] = data.value;
       }
     });
     // Replace the entire map with the current snapshot from Firestore
@@ -58,12 +54,9 @@ export const updateCell = async (
   userId: string | undefined
 ) => {
   try {
-    const docId = `${documentId}_${cellId}`;
-    const cellRef = doc(db, CELLS_COLLECTION, docId);
+    const cellRef = doc(db, DOCUMENTS_COLLECTION, documentId, CELLS_SUBCOLLECTION, cellId);
     
     await setDoc(cellRef, {
-      documentId,
-      cell: cellId,
       value,
       updatedBy: userId || "anonymous",
       updatedAt: serverTimestamp(),
@@ -80,8 +73,7 @@ export const updateCell = async (
  */
 export const deleteCell = async (documentId: string, cellId: string) => {
   try {
-    const docId = `${documentId}_${cellId}`;
-    const cellRef = doc(db, CELLS_COLLECTION, docId);
+    const cellRef = doc(db, DOCUMENTS_COLLECTION, documentId, CELLS_SUBCOLLECTION, cellId);
     
     await deleteDoc(cellRef);
   } catch (error) {

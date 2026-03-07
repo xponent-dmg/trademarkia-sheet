@@ -5,20 +5,19 @@ import {
   deleteDoc,
   updateDoc,
   onSnapshot,
-  query,
-  where,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-const PRESENCE_COLLECTION = "presence";
+const DOCUMENTS_COLLECTION = "documents";
+const PRESENCE_SUBCOLLECTION = "presence";
 
 export interface ActiveUser {
   userId: string;
   name: string;
   color: string;
-  joinedAt?: Timestamp;
+   joinedAt?: Timestamp;
   selectedCell?: string | null;
 }
 
@@ -53,13 +52,11 @@ export const addPresence = async (
   name: string
 ): Promise<void> => {
   try {
-    const presenceId = `${documentId}_${userId}`;
-    const presenceRef = doc(db, PRESENCE_COLLECTION, presenceId);
+    const presenceRef = doc(db, DOCUMENTS_COLLECTION, documentId, PRESENCE_SUBCOLLECTION, userId);
     
     const color = generateUserColor(userId);
 
     await setDoc(presenceRef, {
-      documentId,
       userId,
       name,
       color,
@@ -80,8 +77,7 @@ export const removePresence = async (
   userId: string
 ): Promise<void> => {
   try {
-    const presenceId = `${documentId}_${userId}`;
-    const presenceRef = doc(db, PRESENCE_COLLECTION, presenceId);
+    const presenceRef = doc(db, DOCUMENTS_COLLECTION, documentId, PRESENCE_SUBCOLLECTION, userId);
     await deleteDoc(presenceRef);
   } catch (error) {
     console.error("Error removing presence:", error);
@@ -100,8 +96,7 @@ export const updatePresenceSelection = async (
   selectedCell: string | null
 ): Promise<void> => {
   try {
-    const presenceId = `${documentId}_${userId}`;
-    const presenceRef = doc(db, PRESENCE_COLLECTION, presenceId);
+    const presenceRef = doc(db, DOCUMENTS_COLLECTION, documentId, PRESENCE_SUBCOLLECTION, userId);
     await updateDoc(presenceRef, {
       selectedCell,
     });
@@ -120,19 +115,16 @@ export const subscribeToPresence = (
   documentId: string,
   onUpdate: (users: ActiveUser[]) => void
 ) => {
-  const q = query(
-    collection(db, PRESENCE_COLLECTION),
-    where("documentId", "==", documentId)
-  );
+  const presenceRef = collection(db, DOCUMENTS_COLLECTION, documentId, PRESENCE_SUBCOLLECTION);
 
   return onSnapshot(
-    q,
+    presenceRef,
     (snapshot) => {
       const users: ActiveUser[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         users.push({
-          userId: data.userId,
+          userId: data.userId || docSnap.id,
           name: data.name,
           color: data.color,
           joinedAt: data.joinedAt,

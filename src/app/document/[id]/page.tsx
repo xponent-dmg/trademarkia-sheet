@@ -14,13 +14,13 @@ export default async function DocumentPage(props: DocumentPageProps) {
   
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="h-screen bg-gray-50 flex flex-col">
         {/* Header bar */}
         <DocumentHeader documentId={params.id} />
 
         {/* Main content grid area */}
-        <div className="flex-1 overflow-auto p-4 flex justify-center bg-gray-50">
-          <div className="max-w-max w-full">
+        <div className="flex-1 overflow-hidden p-4 flex justify-center bg-gray-50 min-h-0">
+          <div className="w-full h-full flex justify-center min-h-0">
              <DocumentWorkspace documentId={params.id} />
           </div>
         </div>

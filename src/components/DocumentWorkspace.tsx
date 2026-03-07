@@ -55,22 +55,24 @@ export default function DocumentWorkspace({ documentId }: DocumentWorkspaceProps
   };
 
   return (
-    <div className="flex flex-col gap-2 relative z-0">
+    <div className="flex flex-col gap-2 h-full w-full max-w-max relative z-0">
       <PresenceBar documentId={documentId} />
       <FormulaBar 
         selectedCell={selectedCellLocal} 
         cellMap={cellMap} 
         onUpdateCell={handleCellChange} 
       />
-      <Spreadsheet 
-        documentId={documentId}
-        cellMap={cellMap}
-        activeUsers={activeUsers}
-        selectedCellLocal={selectedCellLocal}
-        onCellChange={handleCellChange}
-        onCellSelect={handleCellSelect}
-        userUid={user?.uid}
-      />
+      <div className="flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden relative">
+        <Spreadsheet 
+          documentId={documentId}
+          cellMap={cellMap}
+          activeUsers={activeUsers}
+          selectedCellLocal={selectedCellLocal}
+          onCellChange={handleCellChange}
+          onCellSelect={handleCellSelect}
+          userUid={user?.uid}
+        />
+      </div>
     </div>
   );
 }

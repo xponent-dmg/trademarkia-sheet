@@ -169,14 +169,14 @@ export default function Spreadsheet({
   return (
     <div 
       ref={containerRef}
-      className="w-full overflow-auto bg-white border border-gray-300 shadow-sm rounded-md outline-none"
+      className="w-full h-full overflow-auto bg-white border border-gray-300 shadow-sm rounded-md outline-none relative"
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
       {/* Column Headers */}
-      <div className="flex flex-row sticky top-0 z-10 bg-gray-100 border-b border-gray-300 min-w-max">
+      <div className="flex flex-row sticky top-0 z-100 bg-gray-100 border-b border-gray-300 min-w-max">
         {/* Top-left corner cell */}
-        <div className="w-12 h-[32px] bg-gray-200 border-r border-gray-300 flex-shrink-0"></div>
+        <div className="w-12 h-[32px] bg-gray-200 border-r border-gray-300 flex-shrink-0 sticky left-0 z-30"></div>
 
         {/* Column headings */}
         {COLUMNS.map((col) => (

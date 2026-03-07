@@ -32,7 +32,7 @@ export default function Row({
   return (
     <div className="flex flex-row">
       {/* Row Header */}
-      <div className="w-12 h-[32px] bg-gray-100 border border-gray-200 flex items-center justify-center font-medium text-gray-600 text-sm flex-shrink-0">
+      <div className="w-12 h-[32px] bg-gray-100 border-r border-gray-200 flex items-center justify-center font-medium text-gray-600 text-sm flex-shrink-0 sticky left-0 z-10">
         {rowNumber}
       </div>
 

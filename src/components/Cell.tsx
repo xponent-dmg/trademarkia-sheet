@@ -43,7 +43,7 @@ export default function Cell({
   let borderStyle = {};
 
   if (isEditing) {
-    borderClass = "border-2 border-blue-500 z-10";
+    borderClass = "border-2 border-blue-500 z-5";
   } else if (selectedBy) {
     borderClass = "border-2 z-10";
     borderStyle = { borderColor: selectedBy.color };

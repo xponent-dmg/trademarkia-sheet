@@ -15,6 +15,7 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
   const [title, setTitle] = useState("Loading...");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -66,6 +67,24 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
     }
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const el = document.createElement("textarea");
+      el.value = window.location.href;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0 relative z-50">
       <div className="flex items-center gap-4">
@@ -104,8 +123,29 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
         </div>
       </div>
       
-      {/* Active Users Dropdown Top Right */}
-      <div>
+      {/* Right-side actions */}
+      <div className="flex items-center gap-2">
+        {/* Copy Link button */}
+        <button
+          onClick={handleCopyLink}
+          title="Copy link to this document"
+          className={`flex items-center justify-center p-2 rounded-full border transition-all duration-200 ${
+            copied
+              ? "bg-green-50 border-green-300 text-green-700"
+              : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900"
+          }`}
+        >
+          {copied ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+          )}
+        </button>
+
         <ActiveUsersDropdown documentId={documentId} />
       </div>
     </div>

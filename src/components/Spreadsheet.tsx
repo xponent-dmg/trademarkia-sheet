@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import Row from "./Row";
 import { ActiveUser } from "@/lib/firestorePresence";
 import { CellData } from "@/lib/firestoreCells";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 interface SpreadsheetProps {
   documentId: string;
@@ -17,6 +19,8 @@ interface SpreadsheetProps {
 
 const ROWS = 100;
 const COLUMNS = Array.from({ length: 26}, (_, i) => String.fromCharCode(65 + i));
+const DEFAULT_COLUMN_WIDTH = 120;
+const MIN_COLUMN_WIDTH = 60;
 
 export default function Spreadsheet({ 
   documentId,
@@ -29,6 +33,7 @@ export default function Spreadsheet({
 }: SpreadsheetProps) {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   
   const selectionMap = activeUsers.reduce((acc, activeUser) => {
@@ -56,6 +61,56 @@ export default function Spreadsheet({
       }
     }
   }, [selectedCellLocal]);
+
+  useEffect(() => {
+    if (!documentId) return;
+    const docRef = doc(db, "documents", documentId);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setColumnWidths(data.columnWidths || {});
+      }
+    });
+    return () => unsubscribe();
+  }, [documentId]);
+
+  const handleResizeMouseDown = (e: React.MouseEvent, column: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const startX = e.clientX;
+    const startWidth = columnWidths[column] || DEFAULT_COLUMN_WIDTH;
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + deltaX);
+      setColumnWidths(prev => ({
+        ...prev,
+        [column]: newWidth
+      }));
+    };
+
+    const onMouseUp = async (upEvent: MouseEvent) => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      
+      const deltaX = upEvent.clientX - startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + deltaX);
+      
+      try {
+        const docRef = doc(db, "documents", documentId);
+        await updateDoc(docRef, {
+          [`columnWidths.${column}`]: newWidth
+        });
+      } catch (error) {
+        console.error("Error updating column width:", error);
+      }
+    };
+    
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
 
   const commitEdit = () => {
     if (editingCell) {
@@ -180,14 +235,23 @@ export default function Spreadsheet({
         <div className="w-12 h-[32px] bg-gray-200 border-r border-gray-300 flex-shrink-0 sticky left-0 z-30"></div>
 
         {/* Column headings */}
-        {COLUMNS.map((col) => (
-          <div
-            key={col}
-            className="w-[100px] h-[32px] border-r border-gray-300 flex items-center justify-center font-medium text-gray-700 flex-shrink-0"
-          >
-            {col}
-          </div>
-        ))}
+        {COLUMNS.map((col) => {
+          const width = columnWidths[col] || DEFAULT_COLUMN_WIDTH;
+          return (
+            <div
+              key={col}
+              className="h-[32px] border-r border-gray-300 flex items-center justify-center font-medium text-gray-700 flex-shrink-0 relative select-none group"
+              style={{ width: `${width}px`, minWidth: `${width}px` }}
+            >
+              {col}
+              {/* Resize Handle */}
+              <div
+                className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 opacity-0 hover:opacity-100 transition-opacity z-10"
+                onMouseDown={(e) => handleResizeMouseDown(e, col)}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Grid Rows */}
@@ -206,8 +270,8 @@ export default function Spreadsheet({
               onEditingValueChange={setEditingValue}
               onDoubleClick={handleDoubleClick}
               onCellBlur={handleCellBlur}
-              onCellChange={onCellChange}
               onCellSelect={onCellSelect}
+              columnWidths={columnWidths}
             />
           );
         })}

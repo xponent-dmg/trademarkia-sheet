@@ -13,9 +13,11 @@ interface RowProps {
   onEditingValueChange: (value: string) => void;
   onDoubleClick: (cellId: string) => void;
   onCellBlur: () => void;
-  onCellChange: (cellId: string, value: string) => void;
   onCellSelect: (cellId: string) => void;
+  columnWidths: Record<string, number>;
 }
+
+const DEFAULT_COLUMN_WIDTH = 120;
 
 export default function Row({ 
   rowNumber, 
@@ -27,8 +29,8 @@ export default function Row({
   onEditingValueChange,
   onDoubleClick,
   onCellBlur,
-  onCellChange, 
-  onCellSelect 
+  onCellSelect,
+  columnWidths
 }: RowProps) {
   return (
     <div className="flex flex-row">
@@ -58,12 +60,12 @@ export default function Row({
               onEditingValueChange={onEditingValueChange}
               onDoubleClick={onDoubleClick}
               onBlur={onCellBlur}
-              onChange={onCellChange}
               onSelect={onCellSelect}
               selectedBy={selectedBy}
               bold={cellData?.bold}
               italic={cellData?.italic}
               bgColor={cellData?.bgColor}
+              width={columnWidths[col] || DEFAULT_COLUMN_WIDTH}
             />
           );
         })}

@@ -10,7 +10,6 @@ interface CellProps {
   isEditing: boolean;
   editingValue: string;
   onEditingValueChange: (value: string) => void;
-  onChange: (cellId: string, value: string) => void; // Keep this just in case, though not strictly needed here if we handle commit in Spreadsheet it's fine.
   onDoubleClick: (cellId: string) => void;
   onSelect: (cellId: string) => void;
   selectedBy: ActiveUser | null;
@@ -18,6 +17,7 @@ interface CellProps {
   bold?: boolean;
   italic?: boolean;
   bgColor?: string;
+  width?: number;
 }
 
 export default function Cell({ 
@@ -27,14 +27,14 @@ export default function Cell({
   isEditing,
   editingValue,
   onEditingValueChange,
-  onChange,
   onDoubleClick,
   onSelect, 
   selectedBy,
   onBlur,
   bold,
   italic,
-  bgColor
+  bgColor,
+  width
 }: CellProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,12 +65,14 @@ export default function Cell({
     fontWeight: bold ? "bold" : "normal",
     fontStyle: italic ? "italic" : "normal",
     backgroundColor: bgColor || "transparent",
+    width: width ? `${width}px` : "100px",
+    minWidth: width ? `${width}px` : "100px",
   };
 
   return (
     <div
       data-cell-id={cellId}
-      className={`${borderClass} w-[100px] h-[32px] overflow-hidden bg-white text-sm box-border relative`}
+      className={`${borderClass} h-[32px] overflow-hidden bg-white text-sm box-border relative flex-shrink-0`}
       style={containerStyle}
       onDoubleClick={() => onDoubleClick(cellId)}
       onClick={() => {

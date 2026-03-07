@@ -17,7 +17,7 @@ function resolveCellValue(
   visited: Set<string>
 ): string {
   if (visited.has(cellId)) return "#ERROR";
-  let cellValue = cellMap[cellId]?.value || "";
+  const cellValue = cellMap[cellId]?.value || "";
   
   if (cellValue.startsWith("=")) {
     const newVisited = new Set(visited);

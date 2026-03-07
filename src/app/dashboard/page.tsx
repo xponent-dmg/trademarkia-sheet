@@ -43,7 +43,7 @@ export default function DashboardPage() {
     );
 
     const unsubscribeDocs = onSnapshot(q, (snapshot) => {
-      let docs = snapshot.docs.map((doc) => {
+      const docs = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,

@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata = {
-  title: 'Trademark Spreadsheet',
+  title: 'CollabSheet',
   description: 'Collaborative spreadsheet application',
 };
 

@@ -1,138 +1,158 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { useAuth } from '@/src/context/AuthContext';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { createDocument, DocumentData } from "@/lib/firestore";
+import { auth } from "@/lib/firebase";
+import DocumentCard from "@/components/DocumentCard";
 
-export default function Dashboard() {
-  const { user, loading, logout } = useAuth();
+export default function DashboardPage() {
   const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [documents, setDocuments] = useState<DocumentData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/');
+    // Listen to Firebase Auth state
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      
+      if (!currentUser) {
+        // Handle unauthenticated user if necessary, e.g., redirect to login
+        router.push("/");
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Real-time listener for documents
+    // Note: We remove orderBy from the query to bypass composite index building delays.
+    // We will do the sorting locally instead.
+    const q = query(
+      collection(db, "documents"),
+      where("createdBy", "==", user.uid)
+    );
+
+    const unsubscribeDocs = onSnapshot(q, (snapshot) => {
+      let docs = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        } as DocumentData;
+      });
+
+      // Sort locally: newest first (descending by updatedAt)
+      docs.sort((a, b) => {
+        const timeA = a.updatedAt?.toMillis() || 0;
+        const timeB = b.updatedAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
+
+      setDocuments(docs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Failed to load documents in onSnapshot:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribeDocs();
+  }, [user]);
+
+  const handleCreateDocument = async () => {
+    if (!user) return;
+    
+    setCreating(true);
+    try {
+      const newDocId = await createDocument(user.uid);
+      // Force redirect to the newly created document
+      router.push(`/document/${newDocId}`);
+    } catch (error) {
+      console.error("Error creating document:", error);
+      alert("Failed to create document.");
+      setCreating(false);
     }
-  }, [user, loading, router]);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <p className="text-gray-500">Loading...</p>
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return null; // Will redirect in useEffect
-  }
-
   return (
-    <div className="min-h-screen bg-[#fcfcfd] text-gray-800 font-sans selection:bg-blue-100">
-      {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm px-6 py-3 flex items-center justify-between transition-all">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 to-black-600 rounded-lg flex items-center justify-center shadow-md rotate-3">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 tracking-tight">
-            CollabSheet
-          </span>
+    <div className="min-h-screen bg-gray-50 pb-10">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center space-x-2">
+          <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
+          <span className="text-xl font-bold text-gray-800">CollabSheet</span>
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-            <span className="text-xs font-medium text-gray-500">Connected</span>
-          </div>
-          
-          <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-gray-900 leading-none">{user.displayName}</p>
-              <p className="text-xs text-gray-500 mt-1">{user.email}</p>
-            </div>
-            <div className="relative group cursor-pointer">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 border border-white shadow-sm flex items-center justify-center text-blue-700 font-bold overflow-hidden ring-2 ring-transparent group-hover:ring-blue-200 transition-all">
-                {user.photoURL ? (
-                  <Image src={"logo.png"} alt="Avatar" width={36} height={36} className="w-full h-full object-cover" unoptimized />
-                ) : (
-                  user.displayName?.charAt(0) || 'U'
-                )}
-              </div>
-            </div>
-            <button
-              onClick={logout}
-              className="ml-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-100"
-              title="Sign out"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
-          </div>
+        <div className="flex items-center space-x-4">
+          <span className="text-sm font-medium text-gray-700">
+            Welcome, {user?.displayName || "User"}
+          </span>
+          {user?.photoURL && (
+            <img 
+              src={user.photoURL} 
+              alt="User profile" 
+              className="w-10 h-10 rounded-full border border-gray-200"
+              referrerPolicy="no-referrer"
+            />
+          )}
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Toolbar Placeholder */}
-        <div className="mb-4 flex flex-wrap items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-gray-200/60">
-          <div className="flex space-x-1 border-r border-gray-200 pr-2">
-            {[1, 2, 3].map(i => (
-              <button key={i} className="w-8 h-8 rounded hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
-                <div className="w-4 h-4 bg-gray-300 rounded-sm"></div>
-              </button>
-            ))}
-          </div>
-          <div className="flex space-x-1 pl-2">
-            {[1, 2, 3, 4].map(i => (
-              <button key={i} className="px-3 h-8 text-xs font-medium text-gray-600 rounded hover:bg-gray-100 transition-colors">
-                Action {i}
-              </button>
-            ))}
-          </div>
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Recent Spreadsheets</h1>
         </div>
 
-        {/* Spreadsheet Area Placeholder */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200/80 overflow-hidden relative">
-          {/* Mock row and column headers */}
-          <div className="absolute top-0 left-10 right-0 h-8 border-b border-gray-200 bg-gray-50 flex">
-             {['A', 'B', 'C', 'D', 'E', 'F'].map(col => (
-               <div key={col} className="w-48 h-full border-r border-gray-200 flex items-center justify-center text-xs font-semibold text-gray-500">
-                 {col}
-               </div>
-             ))}
-          </div>
-          <div className="absolute top-8 left-0 bottom-0 w-10 border-r border-gray-200 bg-gray-50 flex flex-col">
-             {[1, 2, 3, 4, 5, 6, 7].map(row => (
-               <div key={row} className="h-12 w-full border-b border-gray-200 flex items-center justify-center text-xs font-medium text-gray-500">
-                 {row}
-               </div>
-             ))}
-          </div>
-          
-          {/* Main Grid Area */}
-          <div className="min-h-[500px] lg:min-h-[700px] ml-10 mt-8 relative">
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 pb-20 pointer-events-none">
-              <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Spreadsheet Ready</h2>
-              <p className="text-gray-500 max-w-sm">
-                The core layout is established. You can now build out the React data grid here.
-              </p>
-            </div>
-            
-            {/* Grid Lines Mockup */}
-            <div className="absolute inset-0 border-t border-l border-gray-100 opacity-50" 
-                 style={{ backgroundImage: 'linear-gradient(to right, #e5e7eb 1px, transparent 1px), linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)', backgroundSize: '12rem 3rem' }}>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          {/* Create Document Button Card */}
+          <button
+            onClick={handleCreateDocument}
+            disabled={creating}
+            className="group flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-5 h-40 hover:border-blue-500 hover:bg-blue-50 transition-all text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {creating ? (
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+            ) : (
+              <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            )}
+            <span className="font-medium text-lg">
+              {creating ? "Creating..." : "Blank spreadsheet"}
+            </span>
+          </button>
+
+          {/* Render regular document cards */}
+          {documents.map((doc) => (
+            <DocumentCard key={doc.id} document={doc} />
+          ))}
         </div>
+
+        {documents.length === 0 && !loading && (
+          <div className="mt-12 text-center text-gray-500">
+            <p className="text-lg">No spreadsheets yet.</p>
+            <p className="text-sm mt-1">Create a blank spreadsheet to get started.</p>
+          </div>
+        )}
       </main>
     </div>
   );

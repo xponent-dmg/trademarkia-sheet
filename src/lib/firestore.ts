@@ -7,6 +7,12 @@ import {
   getDocs,
   serverTimestamp,
   Timestamp,
+  doc,
+  setDoc,
+  updateDoc,
+  getDoc,
+  arrayUnion,
+  documentId,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -147,6 +153,85 @@ export const deleteDocument = async (id: string): Promise<void> => {
     await batch.commit();
   } catch (error) {
     console.error("Error deleting document and associated data:", error);
+    throw error;
+  }
+};
+
+// ─── Users collection helpers ─────────────────────────────────────────────────
+
+const USERS_COLLECTION = "users";
+
+/**
+ * Records that a user opened a document by adding the docId to their
+ * `openedDocuments` array (arrayUnion prevents duplicates automatically).
+ */
+export const recordOpenedDocument = async (
+  userId: string,
+  docId: string
+): Promise<void> => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    // setDoc with merge:true creates the document if it doesn't exist yet
+    await setDoc(userRef, { openedDocuments: arrayUnion(docId) }, { merge: true });
+  } catch (error) {
+    console.error("Error recording opened document:", error);
+    // Non-fatal – don't throw, just log
+  }
+};
+
+/**
+ * Fetches the list of document IDs that a user has previously opened.
+ */
+export const fetchOpenedDocumentIds = async (
+  userId: string
+): Promise<string[]> => {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return [];
+    return (userSnap.data().openedDocuments as string[]) || [];
+  } catch (error) {
+    console.error("Error fetching opened document ids:", error);
+    return [];
+  }
+};
+
+/**
+ * Fetches documents by their Firestore document IDs using the __name__ in query.
+ * Firestore allows at most 30 items per `in` array, but that is fine for this use-case.
+ */
+export const fetchDocumentsByIds = async (
+  ids: string[]
+): Promise<DocumentData[]> => {
+  if (ids.length === 0) return [];
+
+  try {
+    // Chunk to <= 30 per Firestore limit
+    const chunkSize = 30;
+    const results: DocumentData[] = [];
+
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const q = query(
+        collection(db, DOCUMENTS_COLLECTION),
+        where(documentId(), "in", chunk)
+      );
+      const snap = await getDocs(q);
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        results.push({
+          id: d.id,
+          title: data.title,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        });
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error("Error fetching documents by IDs:", error);
     throw error;
   }
 };

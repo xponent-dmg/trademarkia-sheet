@@ -5,79 +5,122 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { createDocument, deleteDocument, DocumentData } from "@/lib/firestore";
+import {
+  createDocument,
+  deleteDocument,
+  DocumentData,
+  fetchOpenedDocumentIds,
+  fetchDocumentsByIds,
+} from "@/lib/firestore";
 import { auth } from "@/lib/firebase";
 import DocumentCard from "@/components/DocumentCard";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [documents, setDocuments] = useState<DocumentData[]>([]);
+  const [myDocuments, setMyDocuments] = useState<DocumentData[]>([]);
+  const [sharedDocuments, setSharedDocuments] = useState<DocumentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
+  // Auth listener
   useEffect(() => {
-    // Listen to Firebase Auth state
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      
       if (!currentUser) {
-        // Handle unauthenticated user if necessary, e.g., redirect to login
         router.push("/");
         setLoading(false);
       }
     });
-
     return () => unsubscribeAuth();
   }, [router]);
 
+  // My Documents — real-time Firestore listener
   useEffect(() => {
     if (!user) return;
 
-    // Real-time listener for documents
-    // Note: We remove orderBy from the query to bypass composite index building delays.
-    // We will do the sorting locally instead.
     const q = query(
       collection(db, "documents"),
       where("createdBy", "==", user.uid)
     );
 
-    const unsubscribeDocs = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          title: data.title,
-          createdBy: data.createdBy,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-        } as DocumentData;
-      });
+    const unsubscribeDocs = onSnapshot(
+      q,
+      (snapshot) => {
+        const docs = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            title: data.title,
+            createdBy: data.createdBy,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          } as DocumentData;
+        });
 
-      // Sort locally: newest first (descending by updatedAt)
-      docs.sort((a, b) => {
-        const timeA = a.updatedAt?.toMillis() || 0;
-        const timeB = b.updatedAt?.toMillis() || 0;
-        return timeB - timeA;
-      });
+        // Sort: newest first
+        docs.sort((a, b) => {
+          const timeA = a.updatedAt?.toMillis() || 0;
+          const timeB = b.updatedAt?.toMillis() || 0;
+          return timeB - timeA;
+        });
 
-      setDocuments(docs);
-      setLoading(false);
-    }, (error) => {
-      console.error("Failed to load documents in onSnapshot:", error);
-      setLoading(false);
-    });
+        setMyDocuments(docs);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Failed to load documents:", error);
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribeDocs();
   }, [user]);
 
+  // Shared Documents — fetch once (not real-time, but refreshes when user changes)
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    const loadSharedDocs = async () => {
+      try {
+        const openedIds = await fetchOpenedDocumentIds(user.uid);
+        if (cancelled || openedIds.length === 0) return;
+
+        const allOpenedDocs = await fetchDocumentsByIds(openedIds);
+
+        if (cancelled) return;
+
+        // Filter out documents the user owns
+        const shared = allOpenedDocs.filter(
+          (doc) => doc.createdBy !== user.uid
+        );
+
+        // Sort: newest first
+        shared.sort((a, b) => {
+          const timeA = a.updatedAt?.toMillis() || 0;
+          const timeB = b.updatedAt?.toMillis() || 0;
+          return timeB - timeA;
+        });
+
+        setSharedDocuments(shared);
+      } catch (error) {
+        console.error("Failed to load shared documents:", error);
+      }
+    };
+
+    loadSharedDocs();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   const handleCreateDocument = async () => {
     if (!user) return;
-    
     setCreating(true);
     try {
       const newDocId = await createDocument(user.uid);
-      // Force redirect to the newly created document
       router.push(`/document/${newDocId}`);
     } catch (error) {
       console.error("Error creating document:", error);
@@ -89,8 +132,11 @@ export default function DashboardPage() {
   const handleDeleteDocument = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (window.confirm("Are you sure you want to delete this spreadsheet? This action cannot be undone.")) {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this spreadsheet? This action cannot be undone."
+      )
+    ) {
       try {
         await deleteDocument(id);
       } catch (error) {
@@ -110,20 +156,32 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
+      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center space-x-2">
-          <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
+          <svg
+            className="w-8 h-8 text-blue-600"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              fillRule="evenodd"
+              d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+              clipRule="evenodd"
+            />
+          </svg>
           <span className="text-xl font-bold text-gray-800">CollabSheet</span>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <span className="text-sm font-medium text-gray-700">
             Welcome, {user?.displayName || "User"}
           </span>
           {user?.photoURL && (
-            <img 
-              src={user.photoURL} 
-              alt="User profile" 
+            <img
+              src={user.photoURL}
+              alt="User profile"
               className="w-10 h-10 rounded-full border border-gray-200"
               referrerPolicy="no-referrer"
             />
@@ -131,42 +189,99 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Recent Spreadsheets</h1>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {/* Create Document Button Card */}
-          <button
-            onClick={handleCreateDocument}
-            disabled={creating}
-            className="group flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-5 h-40 hover:border-blue-500 hover:bg-blue-50 transition-all text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {creating ? (
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
-            ) : (
-              <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            )}
-            <span className="font-medium text-lg">
-              {creating ? "Creating..." : "Blank spreadsheet"}
-            </span>
-          </button>
-
-          {/* Render regular document cards */}
-          {documents.map((doc) => (
-            <DocumentCard key={doc.id} document={doc} onDelete={handleDeleteDocument} />
-          ))}
-        </div>
-
-        {documents.length === 0 && !loading && (
-          <div className="mt-12 text-center text-gray-500">
-            <p className="text-lg">No spreadsheets yet.</p>
-            <p className="text-sm mt-1">Create a blank spreadsheet to get started.</p>
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-12">
+        {/* ── My Documents ───────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">My Documents</h2>
           </div>
-        )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {/* Create Document Button */}
+            <button
+              onClick={handleCreateDocument}
+              disabled={creating}
+              className="group flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-5 h-40 hover:border-blue-500 hover:bg-blue-50 transition-all text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creating ? (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+              ) : (
+                <svg
+                  className="w-12 h-12 mb-3"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+              )}
+              <span className="font-medium text-lg">
+                {creating ? "Creating..." : "Blank spreadsheet"}
+              </span>
+            </button>
+
+            {myDocuments.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                document={doc}
+                onDelete={handleDeleteDocument}
+              />
+            ))}
+          </div>
+
+          {myDocuments.length === 0 && (
+            <p className="mt-6 text-sm text-gray-400">
+              No spreadsheets yet. Create one above to get started.
+            </p>
+          )}
+        </section>
+
+        {/* ── Shared Documents ───────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">
+              Shared Documents
+            </h2>
+          </div>
+
+          {sharedDocuments.length === 0 ? (
+            <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-300 bg-white px-6 py-8 text-gray-400">
+              <svg
+                className="w-6 h-6 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <span className="text-sm">
+                No shared documents yet. Open a document shared with you and it
+                will appear here.
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {sharedDocuments.map((doc) => (
+                <DocumentCard
+                  key={doc.id}
+                  document={doc}
+                  onDelete={handleDeleteDocument}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );

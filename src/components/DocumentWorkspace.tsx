@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { subscribeToCells, updateCell, deleteCell, CellData } from "@/lib/firestoreCells";
+import { recordOpenedDocument } from "@/lib/firestore";
 import { 
   addPresence, 
   removePresence, 
@@ -25,6 +26,12 @@ export default function DocumentWorkspace({ documentId }: DocumentWorkspaceProps
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [selectedCellLocal, setSelectedCellLocal] = useState<string | null>(null);
   const { user } = useAuth();
+
+  // Record that the current user opened this document (for Shared Documents feature)
+  useEffect(() => {
+    if (!documentId || !user) return;
+    recordOpenedDocument(user.uid, documentId);
+  }, [documentId, user]);
 
   useEffect(() => {
     if (!documentId || !user) return;

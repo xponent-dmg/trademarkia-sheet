@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { createDocument, DocumentData } from "@/lib/firestore";
+import { createDocument, deleteDocument, DocumentData } from "@/lib/firestore";
 import { auth } from "@/lib/firebase";
 import DocumentCard from "@/components/DocumentCard";
 
@@ -86,6 +86,20 @@ export default function DashboardPage() {
     }
   };
 
+  const handleDeleteDocument = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm("Are you sure you want to delete this spreadsheet? This action cannot be undone.")) {
+      try {
+        await deleteDocument(id);
+      } catch (error) {
+        console.error("Error deleting document:", error);
+        alert("Failed to delete spreadsheet.");
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -143,7 +157,7 @@ export default function DashboardPage() {
 
           {/* Render regular document cards */}
           {documents.map((doc) => (
-            <DocumentCard key={doc.id} document={doc} />
+            <DocumentCard key={doc.id} document={doc} onDelete={handleDeleteDocument} />
           ))}
         </div>
 

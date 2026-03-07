@@ -119,3 +119,38 @@ export const updateDocumentTitle = async (id: string, title: string): Promise<vo
     throw error;
   }
 };
+
+/**
+ * Deletes a document by its ID, as well as its associated cells and presence records.
+ * @param id The ID of the document.
+ */
+export const deleteDocument = async (id: string): Promise<void> => {
+  try {
+    const { doc, deleteDoc, collection, query, where, getDocs, writeBatch } = await import("firebase/firestore");
+    
+    // 1. Delete the document itself
+    const docRef = doc(db, DOCUMENTS_COLLECTION, id);
+    await deleteDoc(docRef);
+
+    // 2. Delete all cells for this document
+    const cellsQuery = query(collection(db, "cells"), where("documentId", "==", id));
+    const cellsSnapshot = await getDocs(cellsQuery);
+    
+    const batch = writeBatch(db);
+    cellsSnapshot.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+
+    // 3. Delete presence for this document
+    const presenceQuery = query(collection(db, "presence"), where("documentId", "==", id));
+    const presenceSnapshot = await getDocs(presenceQuery);
+    presenceSnapshot.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error deleting document and associated data:", error);
+    throw error;
+  }
+};

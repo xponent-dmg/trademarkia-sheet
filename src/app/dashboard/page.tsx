@@ -148,34 +148,34 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10">
+    <div className="min-h-screen pb-10">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 bg-gradient-to-tr from-blue-600 to-black-600 rounded-xl flex items-center justify-center shadow-md rotate-3 shrink-0">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <header className="bg-transparent backdrop-blur-xl border-b border-white/30 px-10 py-7 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center space-x-5">
+          <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-white rounded-2xl flex items-center justify-center shadow-lg rotate-3 shrink-0">
+            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <span className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900">CollabSheet</span>
+          <span className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 via-blue-800 to-gray-900 tracking-tight">CollabSheet</span>
         </div>
 
         <div className="flex items-center space-x-4">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-lg font-medium text-gray-700">
             Welcome, {user?.displayName || "User"}
           </span>
           {user?.photoURL && (
             <img
               src={user.photoURL}
               alt="User profile"
-              className="w-10 h-10 rounded-full border border-gray-200"
+              className="w-12 h-12 rounded-full border-2 border-white shadow-md"
               referrerPolicy="no-referrer"
             />
           )}

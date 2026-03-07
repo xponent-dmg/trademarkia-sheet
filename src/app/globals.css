@@ -6,8 +6,10 @@
   --color-primary-500: #3b82f6;
   --color-primary-600: #2563eb;
   --color-primary-700: #1d4ed8;
-  
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 @layer utilities {
@@ -24,7 +26,82 @@ body {
 
 body {
   color: #171717;
-  background: #f8fafc;
+  /* Sign-in page gradient — applied app-wide */
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 50%, #f5f3ff 100%);
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Animated blobs (fixed, behind all content) ───────────────────────── */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+  filter: blur(64px);
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: 0;
+  animation: blob 8s infinite ease-in-out;
+}
+
+/* Purple blob — top-left */
+body::before {
+  width: 480px;
+  height: 480px;
+  background: #c4b5fd;
+  top: -80px;
+  left: -80px;
+}
+
+/* Pink blob — bottom-right */
+body::after {
+  width: 480px;
+  height: 480px;
+  background: #fca5a5;
+  bottom: -100px;
+  right: -80px;
+  animation-delay: 4s;
+}
+
+/* Yellow blob — mid-right (on html so we get a third pseudo-element) */
+html::before {
+  content: "";
+  position: fixed;
+  width: 420px;
+  height: 420px;
+  background: #fde68a;
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+  filter: blur(64px);
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+  top: 38%;
+  right: 5%;
+  animation: blob 8s infinite ease-in-out;
+  animation-delay: 2s;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(20px, -30px) scale(1.06);
+  }
+  66% {
+    transform: translate(-15px, 20px) scale(0.95);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+/* ── Make sure page content sits above the blobs ─────────────────────── */
+body > * {
+  position: relative;
+  z-index: 1;
 }

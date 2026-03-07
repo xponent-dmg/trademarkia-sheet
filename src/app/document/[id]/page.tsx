@@ -12,9 +12,9 @@ export default async function DocumentPage(props: DocumentPageProps) {
   
   return (
     <AuthGuard>
-      <div className="h-screen bg-gray-50 flex flex-col">
+      <div className="h-screen flex flex-col">
         {/* DocumentWorkspace owns the full layout including DocumentHeader */}
-        <div className="flex-1 overflow-hidden flex justify-center bg-gray-50 min-h-0">
+        <div className="flex-1 overflow-hidden flex justify-center min-h-0">
           <div className="w-full h-full flex justify-center min-h-0">
              <DocumentWorkspace documentId={params.id} />
           </div>

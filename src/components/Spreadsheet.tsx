@@ -34,6 +34,7 @@ export default function Spreadsheet({
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [columnOrder, setColumnOrder] = useState<string[]>(COLUMNS);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const selectionMap = activeUsers.reduce((acc, activeUser) => {
@@ -69,6 +70,7 @@ export default function Spreadsheet({
       if (docSnap.exists()) {
         const data = docSnap.data();
         setColumnWidths(data.columnWidths || {});
+        setColumnOrder(data.columnOrder || COLUMNS);
       }
     });
     return () => unsubscribe();
@@ -112,6 +114,48 @@ export default function Spreadsheet({
     document.addEventListener("mouseup", onMouseUp);
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, col: string) => {
+    e.dataTransfer.setData("text/plain", col);
+    // Optional: set drag image or effect
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetCol: string) => {
+    e.preventDefault();
+    const sourceCol = e.dataTransfer.getData("text/plain");
+
+    if (sourceCol && sourceCol !== targetCol) {
+      const newOrder = [...columnOrder];
+      const sourceIndex = newOrder.indexOf(sourceCol);
+      const targetIndex = newOrder.indexOf(targetCol);
+
+      if (sourceIndex !== -1 && targetIndex !== -1) {
+        // Remove from old position
+        newOrder.splice(sourceIndex, 1);
+        // Insert at new position
+        newOrder.splice(targetIndex, 0, sourceCol);
+        
+        // Optimistic update
+        setColumnOrder(newOrder);
+
+        // Firestore update
+        try {
+          const docRef = doc(db, "documents", documentId);
+          await updateDoc(docRef, {
+            columnOrder: newOrder
+          });
+        } catch (error) {
+          console.error("Error reordering columns:", error);
+        }
+      }
+    }
+  };
+
   const commitEdit = () => {
     if (editingCell) {
       onCellChange(editingCell, editingValue);
@@ -137,7 +181,7 @@ export default function Spreadsheet({
     const colMatch = cellId.match(/^[A-Z]+/);
     const rowMatch = cellId.match(/\d+$/);
     if (!colMatch || !rowMatch) return [0, 1];
-    const colIndex = COLUMNS.indexOf(colMatch[0]);
+    const colIndex = columnOrder.indexOf(colMatch[0]);
     const rowIndex = parseInt(rowMatch[0], 10);
     return [colIndex === -1 ? 0 : colIndex, rowIndex];
   };
@@ -150,10 +194,10 @@ export default function Spreadsheet({
     if (direction === "up") newRow = Math.max(1, row - 1);
     if (direction === "down") newRow = Math.min(ROWS, row + 1);
     if (direction === "left") newColIndex = Math.max(0, colIndex - 1);
-    if (direction === "right") newColIndex = Math.min(COLUMNS.length - 1, colIndex + 1);
+    if (direction === "right") newColIndex = Math.min(columnOrder.length - 1, colIndex + 1);
 
     if (newColIndex !== colIndex || newRow !== row) {
-      onCellSelect(`${COLUMNS[newColIndex]}${newRow}`);
+      onCellSelect(`${columnOrder[newColIndex]}${newRow}`);
     }
   };
 
@@ -235,15 +279,20 @@ export default function Spreadsheet({
         <div className="w-12 h-[32px] bg-gray-200 border-r border-gray-300 flex-shrink-0 sticky left-0 z-30"></div>
 
         {/* Column headings */}
-        {COLUMNS.map((col) => {
+        {columnOrder.map((col, index) => {
           const width = columnWidths[col] || DEFAULT_COLUMN_WIDTH;
+          const displayAlphabet = COLUMNS[index]; // Display standard A, B, C regardless of underlying ID
           return (
             <div
               key={col}
-              className="h-[32px] border-r border-gray-300 flex items-center justify-center font-medium text-gray-700 flex-shrink-0 relative select-none group"
+              className="h-[32px] border-r border-gray-300 flex items-center justify-center font-medium text-gray-700 flex-shrink-0 relative select-none group focus:outline-none"
               style={{ width: `${width}px`, minWidth: `${width}px` }}
+              draggable
+              onDragStart={(e) => handleDragStart(e, col)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, col)}
             >
-              {col}
+              <div className="w-full text-center cursor-grab py-1">{displayAlphabet}</div>
               {/* Resize Handle */}
               <div
                 className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 opacity-0 hover:opacity-100 transition-opacity z-10"
@@ -262,7 +311,7 @@ export default function Spreadsheet({
             <Row
               key={rowNumber}
               rowNumber={rowNumber}
-              columns={COLUMNS}
+              columns={columnOrder}
               cellMap={cellMap}
               selectionMap={selectionMap}
               editingCell={editingCell}

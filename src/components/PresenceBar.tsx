@@ -6,6 +6,7 @@ import {
   addPresence,
   removePresence,
   subscribeToPresence,
+  updateHeartbeat,
   ActiveUser,
 } from "@/lib/firestorePresence";
 
@@ -29,6 +30,11 @@ export default function PresenceBar({ documentId }: PresenceBarProps) {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
 
+    // Heartbeat every 10 seconds
+    const heartbeatInterval = setInterval(() => {
+      updateHeartbeat(documentId, user.uid);
+    }, 10000);
+
     // Subscribe to presence updates
     const unsubscribe = subscribeToPresence(documentId, (users) => {
       setActiveUsers(users);
@@ -36,6 +42,7 @@ export default function PresenceBar({ documentId }: PresenceBarProps) {
 
     // Cleanup when component unmounts
     return () => {
+      clearInterval(heartbeatInterval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       unsubscribe();
       removePresence(documentId, user.uid);

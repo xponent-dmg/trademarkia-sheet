@@ -17,7 +17,8 @@ export interface ActiveUser {
   userId: string;
   name: string;
   color: string;
-   joinedAt?: Timestamp;
+  joinedAt?: Timestamp;
+  lastSeen?: Timestamp;
   selectedCell?: string | null;
 }
 
@@ -61,6 +62,7 @@ export const addPresence = async (
       name,
       color,
       joinedAt: serverTimestamp(),
+      lastSeen: serverTimestamp(),
     });
   } catch (error) {
     console.error("Error adding presence:", error);
@@ -106,6 +108,25 @@ export const updatePresenceSelection = async (
 };
 
 /**
+ * Updates the lastSeen timestamp for a user.
+ * @param documentId The ID of the document.
+ * @param userId The ID of the user.
+ */
+export const updateHeartbeat = async (
+  documentId: string,
+  userId: string
+): Promise<void> => {
+  try {
+    const presenceRef = doc(db, DOCUMENTS_COLLECTION, documentId, PRESENCE_SUBCOLLECTION, userId);
+    await updateDoc(presenceRef, {
+      lastSeen: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error updating heartbeat:", error);
+  }
+};
+
+/**
  * Subscribes to the active users in a document.
  * @param documentId The ID of the document to monitor.
  * @param onUpdate Callback fired when the active users change.
@@ -123,11 +144,19 @@ export const subscribeToPresence = (
       const users: ActiveUser[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const lastSeen = data.lastSeen as Timestamp | undefined;
+        // Ignore users whose lastSeen timestamp is older than 30 seconds
+        if (lastSeen) {
+          const isStale = Date.now() - lastSeen.toMillis() >= 30000;
+          if (isStale) return; // Skip this user
+        }
+        
         users.push({
           userId: data.userId || docSnap.id,
           name: data.name,
           color: data.color,
           joinedAt: data.joinedAt,
+          lastSeen: data.lastSeen,
           selectedCell: data.selectedCell || null,
         });
       });

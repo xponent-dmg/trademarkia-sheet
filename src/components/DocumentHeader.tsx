@@ -6,12 +6,16 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { updateDocumentTitle } from "@/lib/firestore";
 import ActiveUsersDropdown from "./ActiveUsersDropdown";
+import ExportMenu from "./ExportMenu";
+import { CellData } from "@/lib/firestoreCells";
 
 interface DocumentHeaderProps {
   documentId: string;
+  cellMap?: Record<string, CellData>;
+  columnWidths?: Record<string, number>;
 }
 
-export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
+export default function DocumentHeader({ documentId, cellMap, columnWidths }: DocumentHeaderProps) {
   const [title, setTitle] = useState("Loading...");
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -86,7 +90,7 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
   };
 
   return (
-    <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0 relative z-50">
+    <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200 shadow-sm shrink-0">
       <div className="flex items-center gap-4">
         <Link 
           href="/dashboard"
@@ -124,7 +128,13 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
       </div>
       
       {/* Right-side actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        {/* Active users — separated from the copy/export group */}
+        <ActiveUsersDropdown documentId={documentId} />
+
+        {/* Vertical divider */}
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+
         {/* Copy Link button */}
         <button
           onClick={handleCopyLink}
@@ -146,7 +156,12 @@ export default function DocumentHeader({ documentId }: DocumentHeaderProps) {
           )}
         </button>
 
-        <ActiveUsersDropdown documentId={documentId} />
+        {/* Export — only shown when cellMap and columnWidths are available */}
+        {cellMap && columnWidths && (
+          <div className="ml-1">
+            <ExportMenu cellMap={cellMap} columnWidths={columnWidths} />
+          </div>
+        )}
       </div>
     </div>
   );

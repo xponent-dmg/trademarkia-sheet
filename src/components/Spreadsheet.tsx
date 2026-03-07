@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Row from "./Row";
 import { ActiveUser } from "@/lib/firestorePresence";
 import { CellData } from "@/lib/firestoreCells";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface SpreadsheetProps {
@@ -15,6 +15,10 @@ interface SpreadsheetProps {
   onCellChange: (cellId: string, value: string) => void;
   onCellSelect: (cellId: string) => void;
   userUid?: string;
+  columnWidths: Record<string, number>;
+  columnOrder: string[];
+  onColumnWidthsChange: (updater: (prev: Record<string, number>) => Record<string, number>) => void;
+  onColumnOrderChange: (order: string[]) => void;
 }
 
 const ROWS = 100;
@@ -29,12 +33,14 @@ export default function Spreadsheet({
   selectedCellLocal,
   onCellChange,
   onCellSelect,
-  userUid
+  userUid,
+  columnWidths,
+  columnOrder,
+  onColumnWidthsChange,
+  onColumnOrderChange,
 }: SpreadsheetProps) {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
-  const [columnOrder, setColumnOrder] = useState<string[]>(COLUMNS);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const selectionMap = activeUsers.reduce((acc, activeUser) => {
@@ -63,18 +69,7 @@ export default function Spreadsheet({
     }
   }, [selectedCellLocal]);
 
-  useEffect(() => {
-    if (!documentId) return;
-    const docRef = doc(db, "documents", documentId);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setColumnWidths(data.columnWidths || {});
-        setColumnOrder(data.columnOrder || COLUMNS);
-      }
-    });
-    return () => unsubscribe();
-  }, [documentId]);
+  // columnWidths and columnOrder are now controlled by DocumentWorkspace via Firestore subscription.
 
   const handleResizeMouseDown = (e: React.MouseEvent, column: string) => {
     e.preventDefault();
@@ -87,7 +82,7 @@ export default function Spreadsheet({
       moveEvent.preventDefault();
       const deltaX = moveEvent.clientX - startX;
       const newWidth = Math.max(MIN_COLUMN_WIDTH, startWidth + deltaX);
-      setColumnWidths(prev => ({
+      onColumnWidthsChange(prev => ({
         ...prev,
         [column]: newWidth
       }));
@@ -140,8 +135,8 @@ export default function Spreadsheet({
         // Insert at new position
         newOrder.splice(targetIndex, 0, sourceCol);
         
-        // Optimistic update
-        setColumnOrder(newOrder);
+        // Optimistic update via parent
+        onColumnOrderChange(newOrder);
 
         // Firestore update
         try {

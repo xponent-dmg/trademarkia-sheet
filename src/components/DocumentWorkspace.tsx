@@ -12,19 +12,26 @@ import {
   updateHeartbeat,
   ActiveUser 
 } from "@/lib/firestorePresence";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 import FormulaBar from "./FormulaBar";
 import Spreadsheet from "./Spreadsheet";
+import DocumentHeader from "./DocumentHeader";
 
 interface DocumentWorkspaceProps {
   documentId: string;
 }
+
+const COLUMNS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
 
 export default function DocumentWorkspace({ documentId }: DocumentWorkspaceProps) {
   // Sparse cell map: driven entirely by Firestore snapshot
   const [cellMap, setCellMap] = useState<Record<string, CellData>>({});
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
   const [selectedCellLocal, setSelectedCellLocal] = useState<string | null>(null);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [columnOrder, setColumnOrder] = useState<string[]>(COLUMNS);
   const { user } = useAuth();
 
   // Record that the current user opened this document (for Shared Documents feature)
@@ -32,6 +39,20 @@ export default function DocumentWorkspace({ documentId }: DocumentWorkspaceProps
     if (!documentId || !user) return;
     recordOpenedDocument(user.uid, documentId);
   }, [documentId, user]);
+
+  // Subscribe to document-level metadata (columnWidths, columnOrder)
+  useEffect(() => {
+    if (!documentId) return;
+    const docRef = doc(db, "documents", documentId);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setColumnWidths(data.columnWidths || {});
+        setColumnOrder(data.columnOrder || COLUMNS);
+      }
+    });
+    return () => unsubscribe();
+  }, [documentId]);
 
   useEffect(() => {
     if (!documentId || !user) return;
@@ -102,8 +123,15 @@ export default function DocumentWorkspace({ documentId }: DocumentWorkspaceProps
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-max relative z-0">
-      
+    <div className="flex flex-col h-full w-full relative z-0">
+
+      {/* Document Header — with cellMap + columnWidths for the Export button */}
+      <DocumentHeader
+        documentId={documentId}
+        cellMap={cellMap}
+        columnWidths={columnWidths}
+      />
+
       {/* Unified Top Toolbar */}
       <div className="flex items-center bg-white border-b border-gray-200 px-2 py-1 gap-2 w-full relative z-50">
         <FormulaBar 
@@ -123,6 +151,10 @@ export default function DocumentWorkspace({ documentId }: DocumentWorkspaceProps
           onCellChange={handleCellChange}
           onCellSelect={handleCellSelect}
           userUid={user?.uid}
+          columnWidths={columnWidths}
+          columnOrder={columnOrder}
+          onColumnWidthsChange={setColumnWidths}
+          onColumnOrderChange={setColumnOrder}
         />
       </div>
     </div>

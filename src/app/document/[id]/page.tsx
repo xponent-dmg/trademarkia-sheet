@@ -1,6 +1,4 @@
-import Link from "next/link";
 import DocumentWorkspace from "@/components/DocumentWorkspace";
-import DocumentHeader from "@/components/DocumentHeader";
 import AuthGuard from "@/components/AuthGuard";
 
 interface DocumentPageProps {
@@ -15,11 +13,8 @@ export default async function DocumentPage(props: DocumentPageProps) {
   return (
     <AuthGuard>
       <div className="h-screen bg-gray-50 flex flex-col">
-        {/* Header bar */}
-        <DocumentHeader documentId={params.id} />
-
-        {/* Main content grid area */}
-        <div className="flex-1 overflow-hidden p-4 flex justify-center bg-gray-50 min-h-0">
+        {/* DocumentWorkspace owns the full layout including DocumentHeader */}
+        <div className="flex-1 overflow-hidden flex justify-center bg-gray-50 min-h-0">
           <div className="w-full h-full flex justify-center min-h-0">
              <DocumentWorkspace documentId={params.id} />
           </div>

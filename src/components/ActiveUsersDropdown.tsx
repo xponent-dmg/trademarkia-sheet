@@ -36,14 +36,14 @@ export default function ActiveUsersDropdown({ documentId }: ActiveUsersDropdownP
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 cursor-pointer px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+        className="flex items-center gap-1 border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:text-gray-900 cursor-pointer px-3 py-2 hover:bg-gray-50 hover:border-gray-300 transition-colors"
       >
         Active users: {activeUsers.length} 
         <span className="text-xs ml-1">▼</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
+        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-[9999] py-1">
           {activeUsers.length === 0 ? (
             <div className="px-4 py-3 justify-center text-sm text-gray-500 italic text-center">
               No active users

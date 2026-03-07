@@ -71,3 +71,51 @@ export const fetchDocuments = async (userId: string): Promise<DocumentData[]> =>
     throw error; // Let the caller handle UI state (e.g., showing an error message)
   }
 };
+
+/**
+ * Fetches a single document by its ID.
+ * @param id The ID of the document.
+ * @returns The DocumentData or null if not found.
+ */
+export const getDocument = async (id: string): Promise<DocumentData | null> => {
+  try {
+    const { doc, getDoc } = await import("firebase/firestore");
+    const docRef = doc(db, DOCUMENTS_COLLECTION, id);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        title: data.title,
+        createdBy: data.createdBy,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      };
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching document:", error);
+    throw error;
+  }
+};
+
+/**
+ * Updates the title of a document.
+ * @param id The ID of the document.
+ * @param title The new title.
+ */
+export const updateDocumentTitle = async (id: string, title: string): Promise<void> => {
+  try {
+    const { doc, updateDoc } = await import("firebase/firestore");
+    const docRef = doc(db, DOCUMENTS_COLLECTION, id);
+    await updateDoc(docRef, {
+      title,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Error updating document title:", error);
+    throw error;
+  }
+};

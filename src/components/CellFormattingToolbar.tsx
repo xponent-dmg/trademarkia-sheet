@@ -62,7 +62,7 @@ export default function CellFormattingToolbar({
   };
 
   return (
-    <div className="flex items-center gap-1 border-l border-r px-2 mx-1 border-gray-300">
+    <div className="flex items-center gap-1 border px-2 mx-1 border-gray-300 rounded-full">
       <button
         onClick={handleToggleBold}
         disabled={!selectedCell}

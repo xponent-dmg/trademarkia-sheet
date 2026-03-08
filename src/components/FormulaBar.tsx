@@ -41,7 +41,7 @@ export default function FormulaBar({ selectedCell, cellMap, onUpdateCell, onUpda
 
   return (
     <div className="flex items-center gap-5 w-full">
-      <div className="font-mono text-sm border bg-white px-4 py-1 rounded min-w-[40px] text-center text-gray-700">
+      <div className="font-mono text-sm border border-gray-400 bg-white px-3 py-1 rounded-md min-w-[40px] text-center text-gray-700">
         {selectedCell ? `[${selectedCell}]` : "[ ]"}
       </div>
 
